@@ -19,6 +19,7 @@ it might look something like this: `sdk_location = "C:\\SoTStuff\\SDK"`. Double-
 - Python's `io.open` (`with open("file.ext", "r") as file`) has some caching stuff, so the first time you run the program after a while of not using it, it might take 10-20 sec to startup, and sadly there is not really anything i can do about this. But the launches after that shouldn't take more than 2-3 seconds.
 - Change from using a predumped sdk to dynamic gobject scanning.
 - Upgrade searching within actors aswell as unknown-data browser.
+- Vertical sliders for treeviews (Tkinter is annoying)
 
 # Functions
 - Actor-Property browser
