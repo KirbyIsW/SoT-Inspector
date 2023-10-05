@@ -2433,7 +2433,6 @@ def search_val(se: str):
         actor_tree.delete(item)
     items_to_remove.clear()
 
-@Helper.profiler
 def search(event: tk.Event = None):
     """
     Gets all instances of the string inside the Search input box "`search_entry`" and displays them in the `actor_tree`

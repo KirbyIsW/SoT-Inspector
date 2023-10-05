@@ -1,0 +1,14 @@
+19:32:42.413 INFO Scanning SDK in folder D:\Sea of Thieves Dev\FULLSOTEXTERNAL\SDK\sdk
+19:32:42.423 INFO Files to scan: 1220
+19:32:42.430 INFO Loading SDK files...
+19:32:46.883 INFO Files Loaded!
+19:32:47.619 INFO Total Classes Read: 16050
+19:32:48.077 INFO SDK Scanned with an elapsed time of 5.6647
+19:32:51.180 INFO Process ID: 18316
+19:32:51.181 INFO SoT uWorld Address: 0x13aba088000
+19:32:51.181 INFO SoT gName Address: 0x13aeef3faf0
+19:32:51.182 INFO Idle Disconnect Address: 0x13aba08bf51
+19:32:51.182 INFO Idle Disconnect Enabled: True
+19:32:51.196 INFO SoTMemoryReader object created with an elapsed time of 3.1175 seconds
+19:32:51.196 INFO Not Creating Pyglet
+19:32:51.196 INFO Creating tkinter
