@@ -34,5 +34,5 @@ it might look something like this: `sdk_location = "C:\\SoTStuff\\SDK"`. Double-
   - Has type changing, subtype changing, is a little bit buggy right now, something to improve.
 - Rendering
   - Want to know where in the world a vector you found is? If you have rendering activated in `config.json` simply right-click and press `Track Vector` which will draw it in the world. Open the Tracked Vectors tab to edit names.
-- Anti AFK for longer sessions of looking around
+- Anti AFK for longer sessions of property searching
 - Limited Logging for statistics
