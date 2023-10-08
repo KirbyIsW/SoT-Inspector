@@ -1,7 +1,7 @@
 # SoT-Inspector
 A deep dive into actors loaded into Sea of Thieves, loaded with a ReClass.NET knockoff and coded in the fastest programming language ever, Python!
 
-If you have any problems or questions, post them on the [UC-Thread](https://www.unknowncheats.me/forum/sea-of-thieves/605014-sot-inspector.html)
+If you have any problems or questions, post them on the [UC-Thread](https://www.unknowncheats.me/forum/sea-of-thieves/605014-sot-inspector.html)  
 You are very welcome to edit or change things you dont seem fit. I am a very amateur python programmer so the code is really ugly, and i am aware "around 4000 lines of pure spagetti code :)". I'm really happy to see other peoples additions or changes! Please share with my discord or on the forums
 
 Credit to [Caldor](https://www.unknowncheats.me/forum/members/5105182.html) for insipration from his own Inspector project in C#, check him out!
