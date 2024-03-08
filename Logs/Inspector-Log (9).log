@@ -1,0 +1,21 @@
+23:30:39.699 INFO Process ID: 10068
+23:30:39.699 INFO SoT uWorld Address: 0x2950b9c7000
+23:30:39.699 INFO SoT gName Address: 0x2887ff3faf0
+23:30:39.699 INFO SoT gObject Address: 0x7ff6b3a5d798
+23:30:39.699 INFO Dumping...
+23:30:39.699 INFO Running dumper at path C:\Hax\Sea of thieves Dev\Inspector\SoT-Inspector\dump\Dumper.exe with argvs []
+23:30:45.448 INFO Dumper ran and exited with exit code 0
+23:30:45.449 INFO Dumped Successfully!
+23:30:45.449 INFO Dumped in 5.7502 seconds
+23:30:45.449 INFO Loading dump
+23:30:46.759 INFO Loaded dump in 1.3091 seconds
+23:30:46.759 INFO Idle Disconnect Address: 0x2882ee37da9
+23:30:46.767 INFO Idle Disconnect Enabled: True
+23:30:46.805 INFO SoTMemoryReader object created with an elapsed time of 13.4456 seconds
+23:30:46.805 INFO Creating pyglet
+23:30:46.805 INFO Creating pyglet window
+23:30:46.805 INFO Creating tkinter
+23:30:46.961 INFO Actors loaded into Viewbox with an elapsed time of 0.0578
+23:30:46.962 INFO Total elapsed time 13.6032
+23:30:47.245 INFO Created pyglet window
+23:30:47.308 INFO Starting pyglet loop
