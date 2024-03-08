@@ -22,6 +22,7 @@ it might look something like this: `sdk_location = "C:\\SoTStuff\\SDK"`. Double-
 
 ## Notes / Todo
 - Horizontal sliders for treeviews (Tkinter is annoying)
+- Improve search features
 
 # Functions
 - Actor-Property browser
