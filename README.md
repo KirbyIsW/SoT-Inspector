@@ -1,3 +1,8 @@
+## WARNING: DOWNLOAD DUMP
+This is the version of SoT-Inspector that uses a memory dump. Useful after EAC release since it does not 
+connect to Sea of Thieves att all
+You can download the dump from my [Google-Drive](https://drive.google.com/file/d/1oYzyEZaJZMn8B34WzfWMu1G42FCo7zQW/view?usp=sharing)
+
 # SoT-Inspector
 A deep dive into actors loaded into Sea of Thieves, loaded with a ReClass.NET knockoff and coded python.
 

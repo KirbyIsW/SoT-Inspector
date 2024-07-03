@@ -9,6 +9,7 @@ def is_proc_active() -> bool:
     """
     Checks if the process is currently running
     """
+    return True
     for proc in psutil.process_iter():
         if "SoTGame.exe" in proc.name():
             return True
@@ -21,7 +22,7 @@ if not is_proc_active():
 
 window_handle = win32gui.FindWindow(None, "Sea of Thieves")
 if not window_handle:
-    messagebox.showerror("Unable to find SoT Window", "Unable to find SoT Window, defaulting to default screen dims")
+    #messagebox.showerror("Unable to find SoT Window", "Unable to find SoT Window, defaulting to default screen dims")
     Helper.logger.error("Sot not running: exiting.")
     SOT_WINDOW_W = win32api.GetSystemMetrics(0)
     SOT_WINDOW_H = win32api.GetSystemMetrics(1)

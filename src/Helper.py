@@ -87,7 +87,10 @@ def find_actor_class(name: str):
     elif "Wieldable" in name:
         return name_class_map["AItemInfo"]
     elif name == "BP_Cannon_ShipPartMMC_C":
-        return name_class_map["ABP_Cannon_C"]
+        try:
+            return name_class_map["ABP_Cannon_C"]
+        except:
+            return None
     return None
 
 def find_class_name(name: str):

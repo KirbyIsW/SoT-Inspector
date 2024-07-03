@@ -5,7 +5,6 @@ from SDKservice import *
 from SDKClasses import *
 import globals
 
-import win32api
 MB_ICONERROR = 0x00000010
 MB_ICONINFORMATION = 0x00000040
 MB_ICONWARNING = 0x00000030
@@ -66,11 +65,11 @@ class SoTMemoryHandler:
         path = globals.json_config["sdk_location"]
         self.Dumper: DumperService = DumperService(path, globals.json_config["sdk_type"])
 
-        if globals.json_config["sdk_type"] == "default":
-            Helper.logger.info("Dumping...")
-            self.Dumper.run_dumper()
-            Helper.logger.info("Dumped Successfully!")
-            logger.info(f"Dumped in {round((time.time() - start_time), 4)} seconds")
+        # if globals.json_config["sdk_type"] == "default":
+        #     Helper.logger.info("Dumping...")
+        #     self.Dumper.run_dumper()
+        #     Helper.logger.info("Dumped Successfully!")
+        #     logger.info(f"Dumped in {round((time.time() - start_time), 4)} seconds")
 
         start_time = time.time()
         logger.info("Loading dump")

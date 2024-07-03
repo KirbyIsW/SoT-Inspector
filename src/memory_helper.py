@@ -2,66 +2,29 @@
 import ctypes
 import ctypes.wintypes
 import struct
-import re
-import psutil
+import re, os
 import globals
 from Helper import logger
+import concurrent.futures
+import time
 
-MAX_PATH = 260
-MAX_MODULE_NAME32 = 255
-TH32CS_SNAPMODULE = 0x00000008
-TH32CS_SNAPMODULE32 = 0x00000010
-PROCESS_QUERY_INFORMATION = 0x0400
-PROCESS_VM_READ = 0x0010
-PROCESS_VM_WRITE = 0x0020
+class MemoryRegion:
+    def __init__(self, start, end, filename):
+        self.start = start
+        self.end = end
+        self.filename = filename
 
-class MODULEENTRY32(ctypes.Structure):
-    """
-    Windows C-type ModuleEntry32 object used to interact with our game process
-    """
-    _fields_ = [('dwSize', ctypes.c_ulong),
-                ('th32ModuleID', ctypes.c_ulong),
-                ('th32ProcessID', ctypes.c_ulong),
-                ('GlblcntUsage', ctypes.c_ulong),
-                ('ProccntUsage', ctypes.c_ulong),
-                ('modBaseAddr', ctypes.c_size_t),
-                ('modBaseSize', ctypes.c_ulong),
-                ('hModule', ctypes.c_void_p),
-                ('szModule', ctypes.c_char * (MAX_MODULE_NAME32+1)),
-                ('szExePath', ctypes.c_char * MAX_PATH)]
+    def __repr__(self):
+        return f'MemoryRegion(start={self.start}, end={self.end}, filename="{self.filename}")'
+    
+class MemoryData:
+    def __init__(self, size=0, data=None):
+        self.size = size
+        self.data = data or []
 
-kernel32 = ctypes.WinDLL('Kernel32', use_last_error=True)
-CreateToolhelp32Snapshot = kernel32.CreateToolhelp32Snapshot
-CreateToolhelp32Snapshot.reltype = ctypes.c_long
-CreateToolhelp32Snapshot.argtypes = [ctypes.c_ulong, ctypes.c_ulong]
-
-Module32First = kernel32.Module32First
-Module32First.argtypes = [ctypes.c_void_p, ctypes.POINTER(MODULEENTRY32)]
-Module32First.rettype = ctypes.c_int
-
-Module32Next = ctypes. windll.kernel32.Module32Next
-Module32Next.argtypes = [ctypes. c_void_p, ctypes.POINTER(MODULEENTRY32)]
-Module32Next.rettype = ctypes.c_int
-
-CloseHandle = kernel32.CloseHandle
-CloseHandle.argtypes = [ctypes.c_void_p]
-CloseHandle.rettype = ctypes.c_int
-
-ReadProcessMemory = kernel32.ReadProcessMemory
-ReadProcessMemory.argtypes = [ctypes.wintypes.HANDLE, ctypes.wintypes.LPCVOID,
-                              ctypes.wintypes.LPVOID, ctypes.c_size_t,
-                              ctypes.POINTER(ctypes.c_size_t)]
-ReadProcessMemory.restype = ctypes.wintypes.BOOL
-
-WriteProcessMemory = kernel32.WriteProcessMemory
-WriteProcessMemory.argtypes = [ctypes.wintypes.HANDLE, ctypes.wintypes.LPVOID,
-                               ctypes.c_void_p, ctypes.c_size_t,
-                               ctypes.POINTER(ctypes.c_size_t)]
-WriteProcessMemory.restype = ctypes.wintypes.BOOL
-
-UWORLDPATTERN = "48 8B 05 ? ? ? ? 48 8B 88 ? ? ? ? 48 85 C9 74 06 48 8B 49 70";
-GOBJECTPATTERN = "48 8B 0D ? ? ? ? 81 4C D1 ? ? ? ? ? 48 8D 4D D8";
-GNAMEPATTERN = "48 8B 3D ? ? ? ? 48 85 ? 75 4A";
+UWORLDPATTERN = "48 8B 05 ? ? ? ? 48 8B 88 ? ? ? ? 48 85 C9 74 06 48 8B 49 70"
+GOBJECTPATTERN = "48 8B 0D ? ? ? ? 81 4C D1 ? ? ? ? ? 48 8D 4D D8"
+GNAMEPATTERN = "48 8B 3D ? ? ? ? 48 85 ? 75 4A"
 
 def convert_pattern_to_regex(pattern: str) -> bytes:
     """
@@ -111,36 +74,40 @@ class ReadMemory:
         memory from
         """
         self.exe = exe_name
-        try:
-            self.pid = self._get_process_id()
-            self.handle = self._get_process_handle()
-            self.base_address = self._get_base_address()
-            self.memsize = self._get_process_memory_usage()
-            self.reminmemaddress = self.base_address
-            self.remaxmemaddress = self.reminmemaddress + self.memsize
-            self.minmemaddress = 0
-            self.maxmemaddress = self.memsize
+        self.pid = self._get_process_id()
+        self.handle = self._get_process_handle()
+        self.base_address = self._get_base_address()
+        self.memsize = self._get_process_memory_usage()
+        self.reminmemaddress = self.base_address
+        self.remaxmemaddress = self.reminmemaddress + self.memsize
+        self.minmemaddress = 0
+        self.maxmemaddress = self.memsize
 
-            self.build_bases()
-            g_name_offset = self.read_ulong(self.base_address + self.g_name_base + 3)
-            g_name_ptr = self.base_address + self.g_name_base + g_name_offset + 7
-            self.g_name_start_address = self.read_ptr(g_name_ptr)
-        except Exception as e:
-            logger.error(f"initializing memory reader: {e}")
+        self.regions: list[MemoryRegion] = []
+        self.memory_contents: dict[str, MemoryData] = {}
+
+        self.build_bases()
+        g_name_offset = self.read_ulong(self.base_address + self.g_name_base + 3)
+        g_name_ptr = self.base_address + self.g_name_base + g_name_offset + 7
+        self.g_name_start_address = self.read_ptr(g_name_ptr)
 
     def build_bases(self):
-        bulk_scan = self.read_bytes(self.base_address, self.memsize)
-        self.u_world_base = search_data_for_pattern(bulk_scan, UWORLDPATTERN)
-        globals.has_gotten_gworld = True
-        self.g_name_base = search_data_for_pattern(bulk_scan, GNAMEPATTERN)
-        globals.has_gotten_gnames = True
-        self.g_object_base = search_data_for_pattern(bulk_scan, GOBJECTPATTERN)
-        del bulk_scan
+        self.load_memory_regions("dump/MemoryDump")
+        self.load_dump_into_mem()
+
+        bulk_scan = self.memory_contents["13FCD0000-1493DF000.bin"]
+        if bulk_scan:
+            self.u_world_base = bulk_scan.size + search_data_for_pattern(bulk_scan.data, UWORLDPATTERN)
+            globals.has_gotten_gworld = True
+            self.g_name_base = bulk_scan.size + search_data_for_pattern(bulk_scan.data, GNAMEPATTERN)
+            globals.has_gotten_gnames = True
+            self.g_object_base = bulk_scan.size + search_data_for_pattern(bulk_scan.data, GOBJECTPATTERN)
 
     def _get_process_id(self):
         """
         Determines the process ID for the given executable name
         """
+        return 0
         for proc in psutil.process_iter():
             if self.exe in proc.name():
                 return proc.pid
@@ -150,12 +117,14 @@ class ReadMemory:
         """
         Checks if the process is currently running
         """
+        return True
         for proc in psutil.process_iter():
             if self.exe in proc.name():
                 return True
         return False
     
     def _get_process_memory_usage(self):
+        return 158396416
         try:
             process = psutil.Process(self.pid)
             memory_info = process.memory_info()
@@ -166,6 +135,7 @@ class ReadMemory:
             logger.error(f"Access denied to process with ID {self.pid}.")
 
     def _get_process_handle(self):
+        return 0
         """
         Attempts to open a handle (using read and query permissions only) for
         the class process ID
@@ -191,6 +161,8 @@ class ReadMemory:
         exe_name
         :return: the base memory address for the process
         """
+        #return 0x140000000
+        return 0x0
         module_entry = MODULEENTRY32()
         module_entry.dwSize = ctypes.sizeof(MODULEENTRY32)
         h_module_snap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE | TH32CS_SNAPMODULE32, self.pid)
@@ -219,21 +191,76 @@ class ReadMemory:
         Check if the PID of the game exists
         :return: value indicating the game process is alive or not
         """
+        return True
         return psutil.pid_exists(self.pid)
+    
+    def load_memory_regions(self, dump_dir):
+        start = time.time()
 
-    def read_bytes(self, address: int, byte: int) -> bytes:
-        """
-        Read a number of bytes at a specific address
-        :param address: address at which to read a number of bytes
-        :param byte: count of bytes to read
-        """
-        #if not isinstance(address, int):
-        #    raise TypeError(f'Address must be int: {address}')
-        buff = ctypes.create_string_buffer(byte)
-        bytes_read = ctypes.c_size_t()
-        ReadProcessMemory(self.handle, ctypes.c_void_p(address),
-                          ctypes.byref(buff), byte, ctypes.byref(bytes_read))
-        return buff.raw
+        for entry in os.scandir(dump_dir):
+            if entry.is_file():
+                file_name = entry.name
+                match = re.match(r'([0-9A-Fa-f]+)-([0-9A-Fa-f]+)', file_name)
+                if match:
+                    start = int(match.group(1), 16)
+                    end = int(match.group(2), 16)
+                    self.regions.append(MemoryRegion(start, end, file_name))
+
+        duration = time.time() - start
+        logger.info(f"Loaded dump into memory in: {duration * 1000:.0f} milliseconds\n")
+
+    def load_memory_contents(self, file_path):
+        if file_path in self.memory_contents.keys():
+            return
+
+        full_path = os.path.join("dump/MemoryDump", file_path)
+        with open(full_path, 'rb') as file:
+            file.seek(0, os.SEEK_END)
+            file_size = file.tell()
+            file.seek(0, os.SEEK_SET)
+
+            size = int(file_path.split('-')[0], 16)
+            data = file.read(file_size)
+
+            mem_region = MemoryData(size=size, data=data)
+            self.memory_contents[file_path] = mem_region
+
+    
+    def load_dump_into_mem(self):
+        start = time.time()
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = [executor.submit(self.load_memory_contents, region.filename) for region in self.regions]
+            concurrent.futures.wait(futures)
+
+        duration = time.time() - start
+        logger.info(f"Loaded dump into memory in: {duration * 1000:.0f} milliseconds\n")
+
+    def read_bytes(self, addr: int, size: int) -> bytes:
+        for region in self.regions:
+            if region.start <= addr < region.end and region.start <= addr + size <= region.end:
+                offset = addr - region.start
+                if region.filename not in self.memory_contents:
+                    self.load_memory_contents(region.filename)
+
+                data = self.memory_contents[region.filename]
+                return data.data[offset:offset + size]
+
+        return None
+
+    # def read_bytes(self, address: int, byte: int) -> bytes:
+    #     """
+    #     Read a number of bytes at a specific address
+    #     :param address: address at which to read a number of bytes
+    #     :param byte: count of bytes to read
+    #     """
+    #     #if not isinstance(address, int):
+    #     #    raise TypeError(f'Address must be int: {address}')
+    #     buff = ctypes.create_string_buffer(byte)
+    #     bytes_read = ctypes.c_size_t()
+    #     ReadProcessMemory(self.handle, ctypes.c_void_p(address),
+    #                       ctypes.byref(buff), byte, ctypes.byref(bytes_read))
+    #     return buff.raw
     
     def read_gname(self, actor_id: int) -> str:
         """
@@ -289,6 +316,9 @@ class ReadMemory:
         byte name
         """
         buffer = self.read_bytes(address, byteCount)
+        if not buffer:
+            return "NoStringFound"
+        
         nullByteIndex = buffer.find(b'\x00')
 
         if nullByteIndex == 1:
@@ -590,9 +620,9 @@ class ReadMemory:
             raise TypeError(f'Address must be int: {address}')
         value_ptr = ctypes.pointer(ctypes.c_bool(value))
         bytes_written = ctypes.c_size_t()
-        WriteProcessMemory(self.handle, ctypes.c_void_p(address),
-                           value_ptr, ctypes.sizeof(ctypes.c_bool),
-                           ctypes.byref(bytes_written))
+        # WriteProcessMemory(self.handle, ctypes.c_void_p(address),
+        #                    value_ptr, ctypes.sizeof(ctypes.c_bool),
+        #                    ctypes.byref(bytes_written))
         if bytes_written.value != ctypes.sizeof(ctypes.c_bool):
             logger.error(f"Failed Writing bool: {bytes_written.value}")
             return False
@@ -603,9 +633,9 @@ class ReadMemory:
             raise TypeError(f'Address must be int: {address}')
         value_ptr = ctypes.pointer(ctypes.c_float(value))
         bytes_written = ctypes.c_size_t()
-        WriteProcessMemory(self.handle, ctypes.c_void_p(address),
-                           value_ptr, ctypes.sizeof(ctypes.c_float),
-                           ctypes.byref(bytes_written))
+        # WriteProcessMemory(self.handle, ctypes.c_void_p(address),
+        #                    value_ptr, ctypes.sizeof(ctypes.c_float),
+        #                    ctypes.byref(bytes_written))
         if bytes_written.value != ctypes.sizeof(ctypes.c_float):
             logger.error(f"Failed Writing float: {bytes_written.value}")
             return False
@@ -618,9 +648,9 @@ class ReadMemory:
             raise TypeError(f'Value must be int32: {value}')
         value_ptr = ctypes.pointer(ctypes.c_int32(value))
         bytes_written = ctypes.c_size_t()
-        WriteProcessMemory(self.handle, ctypes.c_void_p(address),
-                           value_ptr, ctypes.sizeof(ctypes.c_int32),
-                           ctypes.byref(bytes_written))
+        # WriteProcessMemory(self.handle, ctypes.c_void_p(address),
+        #                    value_ptr, ctypes.sizeof(ctypes.c_int32),
+        #                    ctypes.byref(bytes_written))
         if bytes_written.value != ctypes.sizeof(ctypes.c_int32):
             logger.error(f"Failed Writing int32: {bytes_written.value}")
             return False
@@ -635,13 +665,13 @@ class ReadMemory:
         bytes_written = ctypes.c_size_t()
         buffer = ctypes.create_string_buffer(data)
         
-        WriteProcessMemory(
-            self.handle,
-            ctypes.c_void_p(address),
-            buffer,
-            len(data),
-            ctypes.byref(bytes_written)
-        )
+        # WriteProcessMemory(
+        #     self.handle,
+        #     ctypes.c_void_p(address),
+        #     buffer,
+        #     len(data),
+        #     ctypes.byref(bytes_written)
+        # )
         
         if bytes_written.value != len(data):
             logger.error(f"Failed Writing bytes: {bytes_written.value}")
@@ -674,9 +704,6 @@ class ReadMemory:
         updated_byte = ctypes.c_byte(current_byte)
 
         bytes_written = ctypes.c_size_t()
-        WriteProcessMemory(self.handle, ctypes.c_void_p(address),
-                        ctypes.byref(updated_byte), ctypes.sizeof(ctypes.c_byte),
-                        ctypes.byref(bytes_written))
 
         if bytes_written.value != ctypes.sizeof(ctypes.c_byte):
             logger.error(f"Failed: {bytes_written.value}")

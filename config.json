@@ -2,6 +2,6 @@
     "sdk_type": "default",
     "sdk_location": "dump",
 
-    "rendering": true,
+    "rendering": false,
     "fps_target": 60
 }
