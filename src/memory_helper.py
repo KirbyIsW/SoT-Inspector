@@ -280,7 +280,13 @@ class ReadMemory:
         return self.read_string(name + 0x10, 64)
     
     def read_fstring(self, stringptr: int):
+        if stringptr == 0:
+            return "NoStringFound"
+        
         stringAddress = self.read_ptr(stringptr)
+        if stringAddress == 0:
+            return "NoStringFound"
+        
         charcount = self.read_int(stringptr + 8)
         if charcount > 0 and charcount < 500:
             text = self.read_string(stringAddress, charcount)
@@ -346,6 +352,9 @@ class ReadMemory:
         byte name
         """
         buff = self.read_bytes(address, byte*2)
+        if not buff:
+            return "NoStringFound"
+        
         i = buff.find(b"\x00\x00\x00")
         shorter = buff[:i] + b'\x00'
         try:
@@ -377,16 +386,22 @@ class ReadMemory:
     
     def read_int64(self, address: int):
         read_bytes = self.read_bytes(address, struct.calcsize('q'))
+        if not read_bytes:
+            return 0
         read_bytes = struct.unpack('<q', read_bytes)[0]
         return read_bytes
 
     def read_int16(self, address: int):
         read_bytes = self.read_bytes(address, struct.calcsize('h'))
+        if not read_bytes:
+            return 0
         read_bytes = struct.unpack('<h', read_bytes)[0]
         return read_bytes
 
     def read_int8(self, address: int):
         read_bytes = self.read_bytes(address, struct.calcsize('b'))
+        if not read_bytes:
+            return 0
         read_bytes = struct.unpack('<b', read_bytes)[0]
         return read_bytes
     
@@ -395,6 +410,8 @@ class ReadMemory:
         :param address: address at which to read a number of bytes
         """
         read_bytes = self.read_bytes(address, struct.calcsize('i'))
+        if not read_bytes:
+            return 0
         read_bytes = struct.unpack('<i', read_bytes)[0]
         return read_bytes
     
@@ -420,6 +437,9 @@ class ReadMemory:
         :return: The boolean value read from the address.
         """
         read_byte = self.read_bytes(address, 1)
+        if not read_byte:
+            return False
+        
         read_bool = bool(read_byte[0])
         return read_bool
     
@@ -445,6 +465,8 @@ class ReadMemory:
         :return: The character value read from the address.
         """
         read_bytes = self.read_bytes(address, struct.calcsize('c'))
+        if not read_bytes:
+            return 0
         read_char = struct.unpack('c', read_bytes)[0]
         return read_char
     
@@ -465,6 +487,9 @@ class ReadMemory:
         :return: the 4 bytes of data (UInt32) that live at the provided address
         """
         read_bytes = self.read_bytes(address, struct.calcsize('I'))
+        if not read_bytes:
+            return 0
+        
         read_bytes = struct.unpack('<I', read_bytes)[0]
         return read_bytes
     
@@ -475,6 +500,8 @@ class ReadMemory:
         :return: the 2 bytes of data (UInt16) that live at the provided address
         """
         read_bytes = self.read_bytes(address, struct.calcsize('H'))
+        if not read_bytes:
+            return 0
         read_bytes = struct.unpack('<H', read_bytes)[0]
         return read_bytes
     
@@ -485,6 +512,8 @@ class ReadMemory:
         :return: the 1 bytes of data (UInt8) that live at the provided address
         """
         read_bytes = self.read_bytes(address, struct.calcsize('B'))
+        if not read_bytes:
+            return 0
         read_bytes = struct.unpack('<B', read_bytes)[0]
         return read_bytes
 
@@ -503,6 +532,8 @@ class ReadMemory:
         :param address: address at which to read a number of bytes
         """
         read_bytes = self.read_bytes(address, struct.calcsize('f'))
+        if not read_bytes:
+            return 0
         read_bytes = struct.unpack('<f', read_bytes)[0]
         return read_bytes
     
@@ -515,6 +546,8 @@ class ReadMemory:
         :return: The double-precision floating-point number at the provided address.
         """
         read_bytes = self.read_bytes(address, struct.calcsize('d'))
+        if not read_bytes:
+            return 0
         read_double = struct.unpack('<d', read_bytes)[0]
         return read_double
 
@@ -526,6 +559,8 @@ class ReadMemory:
         address
         """
         read_bytes = self.read_bytes(address, struct.calcsize('L'))
+        if not read_bytes:
+            return 0
         read_bytes = struct.unpack('<L', read_bytes)[0]
         return read_bytes
     
@@ -554,6 +589,8 @@ class ReadMemory:
         address
         """
         read_bytes = self.read_bytes(address, struct.calcsize('LL'))
+        if not read_bytes:
+            return 0
         read_bytes = struct.unpack('<LL', read_bytes)[0]
         return read_bytes
 
@@ -564,7 +601,12 @@ class ReadMemory:
         :return: the 8-bytes of data (ulonglong) that live at the provided
         address
         """
-        return struct.unpack('<Q', self.read_bytes(address, struct.calcsize('Q')))[0]
+        read_bytes = self.read_bytes(address, struct.calcsize('Q'))
+        if not read_bytes:
+            return 0
+        
+        read_bytes = struct.unpack('<Q', read_bytes)[0]
+        return read_bytes
     
     def read_guid(self, address: int) -> tuple [int, int, int, int]:
         """
@@ -611,6 +653,9 @@ class ReadMemory:
         if data_type in type_format_mapping:
             format_string = type_format_mapping[data_type]
             read_bytes = self.read_bytes(address, struct.calcsize(format_string))
+            if not read_bytes:
+                return 0
+            
             value = struct.unpack('<' + format_string, read_bytes)[0]
             return value
         else:

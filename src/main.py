@@ -1443,14 +1443,17 @@ def change_sub_type(prop: UnknownProperty):
     sorted_dict = dict(sorted(class_items_that_fit.items(), key=lambda item: item[1], reverse=True))
     open_type_changing_window(sorted_dict, prop)
 
-def reload_scan_listbox(dictionary: dict):
-    value_list.delete(0, tk.END)
+def reload_scan_listbox(dictionary: dict, keep_previous: bool = False):
+    if not keep_previous:
+        value_list.delete(0, tk.END)
+
     for name, value in dictionary.items():
         value_list.insert(tk.END, f"{name}: {value}")
 
-def scan_actor_for_val(actorName: str, search_val: str, search_type, value_type: str, actor: SDKClass, address: int):
-    traveled_pointers: list[int] = [address]
+def scan_actor_for_val(actorName: str, search_val: str, search_type, value_type: str, actor: SDKClass, address: int, scanning_all_actors: bool = False):
+    traveled_pointers = [address]
     found_vals = {}
+
     add_all = False
 
     def search_prop_address(mainProp: Union[SDKProperty, SDKClass], address: int, isClass: bool = False):
@@ -1701,41 +1704,63 @@ def scan_actor_for_val(actorName: str, search_val: str, search_type, value_type:
 
     if search_val == "":
         add_all = True
-    try:
-        actor.temp_parent_chain = actorName
-        actor.temp_chain_depth = 0
+    # try:
+    actor.temp_parent_chain = actorName
+    actor.temp_chain_depth = 0
 
-        if search_type == "Value":
-            search_prop_val(actor, address, True)
-        elif search_type == "Address":
-            if search_val.startswith("0x"):
-                search_val = int(search_val, 16)
-            else:
-                search_val = int("0x" + search_val, 16)
-            if address == search_val:
-                found_vals[actor.temp_parent_chain] = f'{hex(search_val)}'
-            search_prop_address(actor, address, True)
-        elif search_type == "Property Name":
-            if search_val == "":
-                messagebox.showerror("Enter a name", f'Please enter a name or part of a name when searching using "{search_type}"')
-                return
-            search_prop_name(actor, address, True)
-        elif search_type == "Property Type":
-            if search_val == "":
-                messagebox.showerror("Enter a type", f'Please enter a typename or part of a typename when searching using "{search_type}"')
-                return
+    if search_type == "Value":
+        search_prop_val(actor, address, True)
+    elif search_type == "Address":
+        if search_val.startswith("0x"):
+            search_val = int(search_val, 16)
+        else:
+            search_val = int("0x" + search_val, 16)
+        if address == search_val:
+            found_vals[actor.temp_parent_chain] = f'{hex(search_val)}'
+        search_prop_address(actor, address, True)
+    elif search_type == "Property Name":
+        if search_val == "":
+            messagebox.showerror("Enter a name", f'Please enter a name or part of a name when searching using "{search_type}"')
+            return
+        search_prop_name(actor, address, True)
+    elif search_type == "Property Type":
+        if search_val == "":
+            messagebox.showerror("Enter a type", f'Please enter a typename or part of a typename when searching using "{search_type}"')
+            return
             search_prop_type(actor, address, True)
-    except Exception as e:
-        messagebox.showerror("Error", f'Error: {e}')
-        return
+    # except Exception as e:
+    #     messagebox.showerror("Scan Error", f'Error: {e}')
+    #     return
 
-    reload_scan_listbox(found_vals)
+    if found_vals:
+        print(found_vals)
+
+    reload_scan_listbox(found_vals, scanning_all_actors)
+
+def search_all_actors_for_val():
+
+    start = time.time()
+    Helper.logger.info(f"Starting full actor search: {len(mem.address_name_map)}")
+    search_value = scan_search_entry.get()
+    search_value_type = value_type_clicked.get()
+    search_type = search_type_clicked.get()
+
+    for address, name in mem.address_name_map.items():
+        actorClass = Helper.find_actor_class(name)
+        if not actorClass:
+            continue
+
+        scan_actor_for_val(name, search_value, search_type, search_value_type, actorClass, address, True)
+    duration = time.time() - start
+    Helper.logger.info(f"Actors scanned with an elapsed time of {round(duration, 4)}")
 
 def init_scan(name: str, type, address):
     actorClass = mem.Dumper.get_class_from_name(type)
     search_value = scan_search_entry.get()
     search_value_type = value_type_clicked.get()
     search_type = search_type_clicked.get()
+
+    print("Scanning")
     scan_actor_for_val(name, search_value, search_type, search_value_type, actorClass, address)
 
 def search_actor_for_val_screen(item: str):
@@ -1787,6 +1812,9 @@ def search_actor_for_val_screen(item: str):
 
     search_button = Button(main_frame, text="Scan", command=lambda: init_scan(actor_name, actor_type, actor_address))
     search_button.pack(anchor='w')
+
+    search_button_2 = Button(main_frame, text="Scan All", command=lambda: search_all_actors_for_val())
+    search_button_2.pack(anchor='w')
 
     search_label = Label(main_frame, text="Value:")
     search_label.pack(anchor='w')
