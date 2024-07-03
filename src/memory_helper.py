@@ -8,6 +8,8 @@ from Helper import logger
 import concurrent.futures
 import time
 
+from tkinter import messagebox
+
 class MemoryRegion:
     def __init__(self, start, end, filename):
         self.start = start
@@ -92,6 +94,10 @@ class ReadMemory:
         self.g_name_start_address = self.read_ptr(g_name_ptr)
 
     def build_bases(self):
+        if not os.path.exists("dump/MemoryDump"):
+            messagebox.showerror("No Dump!", "Unable to find dump, please check dump/MemoryDump or download it from https://drive.google.com/file/d/1oYzyEZaJZMn8B34WzfWMu1G42FCo7zQW/view?usp=sharing")
+            exit(1)
+
         self.load_memory_regions("dump/MemoryDump")
         self.load_dump_into_mem()
 
